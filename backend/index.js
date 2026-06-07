@@ -192,7 +192,7 @@ app.get(
   ),
   (req, res) => {
     res.redirect(
-      "http://localhost:5173"
+      "https://weather-app-1242.vercel.app"
     );
   }
 );
