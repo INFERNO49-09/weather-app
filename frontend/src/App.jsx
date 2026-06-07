@@ -55,7 +55,7 @@ function App() {
   useEffect(() => {
     axios
       .get(
-        "${import.meta.env.VITE_API_URL}/auth/user",
+        '${import.meta.env.VITE_API_URL}/auth/user',
         {
           withCredentials: true,
         }
@@ -73,7 +73,7 @@ function App() {
   const loadFavorites = async () => {
     try {
       const res = await axios.get(
-        "${import.meta.env.VITE_API_URL}/favorites",
+        '${import.meta.env.VITE_API_URL}/favorites',
         {
           withCredentials: true,
         }
@@ -323,7 +323,7 @@ function App() {
         }
       />
 
-      <div className="flex min-h-screen">
+      <div className="flex flex-col lg:flex-row min-h-screen">
         <Sidebar
           activePage={
             activePage
@@ -333,11 +333,13 @@ function App() {
           }
         />
 
-        <main className="flex-1 p-8 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden pb-24 lg:pb-8">
 
-          <div className="flex justify-between items-center mb-8">
+          <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center mb-8">
             <TopBar user={user} />
+               <div className="flex justify-start lg:justify-end">
             <LoginButton user={user} />
+            </div>
           </div>
 
           <div className="mb-8">
@@ -348,7 +350,7 @@ function App() {
             />
           </div>
 
-          <div className="mb-8">
+          <div className="mb-8 flex justify-center lg:justify-start">
             <LocationButton
               onLocationSearch={
                 fetchLocationWeather
@@ -376,7 +378,7 @@ function App() {
           {activePage ===
             "dashboard" &&
             weather && (
-              <div className="space-y-8">
+              <div className="space-y-6 lg:space-y-8">
 
                 <WeatherCard
                   weather={
