@@ -55,7 +55,7 @@ function App() {
   useEffect(() => {
     axios
       .get(
-        "http://localhost:5000/auth/user",
+        "${import.meta.env.VITE_API_URL}/auth/user",
         {
           withCredentials: true,
         }
@@ -73,7 +73,7 @@ function App() {
   const loadFavorites = async () => {
     try {
       const res = await axios.get(
-        "http://localhost:5000/favorites",
+        "${import.meta.env.VITE_API_URL}/favorites",
         {
           withCredentials: true,
         }
@@ -94,7 +94,7 @@ function App() {
   ) => {
     try {
       await axios.delete(
-        `http://localhost:5000/favorites/${city}`,
+        `${import.meta.env.VITE_API_URL}/favorites/${city}`,
         {
           withCredentials: true,
         }
@@ -157,7 +157,7 @@ function App() {
     try {
       const res =
         await axios.get(
-          `http://localhost:5000/aqi?lat=${lat}&lon=${lon}`
+          `${import.meta.env.VITE_API_URL}/aqi?lat=${lat}&lon=${lon}`
         );
 
       setAqi(res.data);
@@ -171,7 +171,7 @@ function App() {
       try {
         const res =
           await axios.get(
-            `http://localhost:5000/forecast/${city}`
+            `${import.meta.env.VITE_API_URL}/forecast/${city}`
           );
 
         const dailyForecast =
@@ -241,7 +241,7 @@ function App() {
 
         const res =
           await axios.get(
-            `http://localhost:5000/weather/${city}`
+            `${import.meta.env.VITE_API_URL}/weather/${city}`
           );
 
         setWeather(
@@ -284,7 +284,7 @@ function App() {
 
             const res =
               await axios.get(
-                `http://localhost:5000/weather/location?lat=${latitude}&lon=${longitude}`
+                `${import.meta.env.VITE_API_URL}/weather/location?lat=${latitude}&lon=${longitude}`
               );
 
             setWeather(
