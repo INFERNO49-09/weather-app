@@ -61,6 +61,7 @@ function App() {
         }
       )
       .then((res) => {
+        console.log("AUTH USER:", res.data);
         setUser(res.data);
 
         if (res.data) {
