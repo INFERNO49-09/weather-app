@@ -1,16 +1,14 @@
-function LoginButton({ user }) {
-  const login = () => {
-    window.location.href = "/api/auth/google";
-  };
+const API = import.meta.env.VITE_API_URL;
 
-  const logout = () => {
-    window.location.href = "/api/auth/logout";
+function LoginButton({ user, onLogout }) {
+  const login = () => {
+    window.location.href = `${API}/auth/google`;
   };
 
   if (user) {
     return (
       <button
-        onClick={logout}
+        onClick={onLogout}
         className="backdrop-blur-xl bg-red-500/20 border border-red-400 px-5 py-3 rounded-2xl hover:bg-red-500/30 transition"
       >
         Logout

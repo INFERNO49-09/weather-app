@@ -19,9 +19,13 @@ import LocationsPage from "./components/LocationsPage";
 import SettingsPage from "./components/SettingsPage";
 import MapPage from "./components/MapPage";
 
-// Use /api prefix — Vercel proxies this to Render backend,
-// keeping cookies same-site so sessions work correctly.
-const API = "/api";
+const API = import.meta.env.VITE_API_URL;
+
+// Axios helper that always attaches JWT from localStorage
+function authHeaders() {
+  const token = localStorage.getItem("token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 function App() {
   const [weather, setWeather] = useState(null);
@@ -38,24 +42,42 @@ function App() {
     return JSON.parse(localStorage.getItem("weatherHistory")) || [];
   });
 
-  const fetchUser = () => {
-    return axios
-      .get(`${API}/auth/user`, { withCredentials: true })
-      .then((res) => {
-        setUser(res.data);
-        if (res.data) loadFavorites();
-      })
-      .catch(console.error);
-  };
-
   useEffect(() => {
+    // Check if Google OAuth just redirected back with a token in the URL
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+
+    if (token) {
+      localStorage.setItem("token", token);
+      // Clean the token from the URL without reloading
+      window.history.replaceState({}, "", "/");
+    }
+
+    // Now fetch the user using whatever token we have
     fetchUser();
   }, []);
+
+  const fetchUser = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const res = await axios.get(`${API}/auth/user`, {
+        headers: authHeaders(),
+      });
+      setUser(res.data);
+      loadFavorites();
+    } catch (err) {
+      // Token invalid or expired — clear it
+      localStorage.removeItem("token");
+      setUser(null);
+    }
+  };
 
   const loadFavorites = async () => {
     try {
       const res = await axios.get(`${API}/favorites`, {
-        withCredentials: true,
+        headers: authHeaders(),
       });
       setFavorites(res.data.map((item) => item.city));
     } catch (err) {
@@ -66,12 +88,18 @@ function App() {
   const removeFavorite = async (city) => {
     try {
       await axios.delete(`${API}/favorites/${city}`, {
-        withCredentials: true,
+        headers: authHeaders(),
       });
       loadFavorites();
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    setUser(null);
+    setFavorites([]);
   };
 
   const saveToHistory = (city) => {
@@ -195,7 +223,7 @@ function App() {
           <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center mb-8">
             <TopBar user={user} />
             <div className="flex justify-start lg:justify-end">
-              <LoginButton user={user} />
+              <LoginButton user={user} onLogout={handleLogout} />
             </div>
           </div>
 

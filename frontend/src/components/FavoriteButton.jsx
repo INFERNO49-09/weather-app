@@ -1,14 +1,20 @@
 import axios from "axios";
 
-const API = "/api";
+const API = import.meta.env.VITE_API_URL;
 
 function FavoriteButton({ weather, refreshFavorites }) {
   const addFavorite = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      alert("Please sign in to save favorites.");
+      return;
+    }
+
     try {
       await axios.post(
         `${API}/favorites`,
         { city: weather.name },
-        { withCredentials: true }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       refreshFavorites();
     } catch (err) {

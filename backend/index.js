@@ -2,9 +2,8 @@ import express from "express";
 import cors from "cors";
 import axios from "axios";
 import dotenv from "dotenv";
+import jwt from "jsonwebtoken";
 
-import session from "express-session";
-import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 
@@ -58,39 +57,11 @@ app.use(
 
 /*
 ==================================
-SESSION (PostgreSQL-backed)
-==================================
-*/
-
-const PgStore = connectPgSimple(session);
-
-app.use(
-  session({
-    store: new PgStore({
-      pool,
-      tableName: "session",
-      createTableIfMissing: false,
-    }),
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: true,
-      httpOnly: true,
-      sameSite: "none",
-      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
-    },
-  })
-);
-
-/*
-==================================
-PASSPORT
+PASSPORT (OAuth only — no sessions)
 ==================================
 */
 
 app.use(passport.initialize());
-app.use(passport.session());
 
 passport.use(
   new GoogleStrategy(
@@ -126,23 +97,38 @@ passport.use(
   )
 );
 
-// Only store user ID in the session cookie — lean and safe
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
+// No serializeUser/deserializeUser needed — JWT handles identity
 
-// Re-fetch full user from DB on each request
-passport.deserializeUser(async (id, done) => {
-  try {
-    const result = await pool.query(
-      "SELECT * FROM users WHERE id = $1",
-      [id]
-    );
-    done(null, result.rows[0] || null);
-  } catch (err) {
-    done(err);
+/*
+==================================
+JWT MIDDLEWARE
+==================================
+*/
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+function generateToken(user) {
+  return jwt.sign(
+    { id: user.id, name: user.name, email: user.email, photo: user.photo },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+}
+
+function requireAuth(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "Not authenticated" });
   }
-});
+
+  try {
+    const token = auth.slice(7);
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
 
 /*
 ==================================
@@ -164,43 +150,28 @@ app.use("/auth/google", authLimiter);
 
 app.get(
   "/auth/google",
-  passport.authenticate("google", {
-    scope: ["profile", "email"],
-  })
+  passport.authenticate("google", { scope: ["profile", "email"], session: false })
 );
 
 app.get(
   "/auth/google/callback",
-  passport.authenticate("google", { failureRedirect: "/" }),
+  passport.authenticate("google", { failureRedirect: "/", session: false }),
   (req, res) => {
-    res.redirect("https://weather-app-1242.vercel.app");
+    // Issue a JWT and pass it to the frontend via URL param
+    const token = generateToken(req.user);
+    res.redirect(
+      `https://weather-app-1242.vercel.app?token=${token}`
+    );
   }
 );
 
-app.get("/auth/user", (req, res) => {
-  if (!req.user) {
-    return res.json(null);
-  }
+app.get("/auth/user", requireAuth, (req, res) => {
   res.json(req.user);
 });
 
-app.get("/auth/debug", (req, res) => {
-  res.json({
-    authenticated: req.isAuthenticated(),
-    user: req.user || null,
-    session: req.session,
-  });
-});
-
 app.get("/auth/logout", (req, res) => {
-  req.logout((err) => {
-    if (err) {
-      return res.status(500).json({ error: "Logout failed" });
-    }
-    req.session.destroy(() => {
-      res.redirect("https://weather-app-1242.vercel.app");
-    });
-  });
+  // JWT is stateless — logout is handled client-side by deleting the token
+  res.redirect("https://weather-app-1242.vercel.app");
 });
 
 /*
@@ -209,11 +180,7 @@ FAVORITES
 ==================================
 */
 
-app.get("/favorites", async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
-
+app.get("/favorites", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
       "SELECT city FROM favorites WHERE user_id = $1 ORDER BY city",
@@ -226,13 +193,8 @@ app.get("/favorites", async (req, res) => {
   }
 });
 
-app.post("/favorites", async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
-
+app.post("/favorites", requireAuth, async (req, res) => {
   const { city } = req.body;
-
   try {
     await pool.query(
       "INSERT INTO favorites (user_id, city) VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -245,11 +207,7 @@ app.post("/favorites", async (req, res) => {
   }
 });
 
-app.delete("/favorites/:city", async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({ error: "Not authenticated" });
-  }
-
+app.delete("/favorites/:city", requireAuth, async (req, res) => {
   try {
     await pool.query(
       "DELETE FROM favorites WHERE user_id = $1 AND city = $2",
@@ -276,9 +234,8 @@ app.use("/weather-layer", apiLimiter);
 
 app.get("/weather/:city", async (req, res) => {
   try {
-    const city = req.params.city;
     const response = await axios.get(
-      `https://api.openweathermap.org/data/2.5/weather?q=${city}&appid=${process.env.API_KEY}&units=metric`
+      `https://api.openweathermap.org/data/2.5/weather?q=${req.params.city}&appid=${process.env.API_KEY}&units=metric`
     );
     res.json(response.data);
   } catch (error) {
@@ -286,12 +243,6 @@ app.get("/weather/:city", async (req, res) => {
     res.status(500).json({ error: "Weather fetch failed" });
   }
 });
-
-/*
-==================================
-LOCATION WEATHER
-==================================
-*/
 
 app.get("/weather/location", async (req, res) => {
   try {
@@ -306,17 +257,10 @@ app.get("/weather/location", async (req, res) => {
   }
 });
 
-/*
-==================================
-FORECAST
-==================================
-*/
-
 app.get("/forecast/:city", async (req, res) => {
   try {
-    const city = req.params.city;
     const response = await axios.get(
-      `https://api.openweathermap.org/data/2.5/forecast?q=${city}&appid=${process.env.API_KEY}&units=metric`
+      `https://api.openweathermap.org/data/2.5/forecast?q=${req.params.city}&appid=${process.env.API_KEY}&units=metric`
     );
     res.json(response.data);
   } catch (error) {
@@ -324,12 +268,6 @@ app.get("/forecast/:city", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch forecast" });
   }
 });
-
-/*
-==================================
-AQI
-==================================
-*/
 
 app.get("/aqi", async (req, res) => {
   try {
@@ -344,29 +282,18 @@ app.get("/aqi", async (req, res) => {
   }
 });
 
-/*
-==================================
-WEATHER MAP LAYERS
-==================================
-*/
-
 app.get("/weather-layer", async (req, res) => {
   try {
     const { layer, z, x, y } = req.query;
-
-    const allowedLayers = [
-      "clouds_new",
-      "precipitation_new",
-      "temp_new",
-      "wind_new",
-    ];
+    const allowedLayers = ["clouds_new", "precipitation_new", "temp_new", "wind_new"];
 
     if (!allowedLayers.includes(layer)) {
       return res.status(400).json({ error: "Invalid weather layer" });
     }
 
-    const tileUrl = `https://tile.openweathermap.org/map/${layer}/${z}/${x}/${y}.png?appid=${process.env.API_KEY}`;
-    res.redirect(tileUrl);
+    res.redirect(
+      `https://tile.openweathermap.org/map/${layer}/${z}/${x}/${y}.png?appid=${process.env.API_KEY}`
+    );
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to load weather layer" });
