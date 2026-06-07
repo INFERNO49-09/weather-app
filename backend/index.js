@@ -229,8 +229,32 @@ WEATHER
 app.use("/weather", apiLimiter);
 app.use("/forecast", apiLimiter);
 app.use("/aqi", apiLimiter);
+app.use("/alerts", apiLimiter);
 app.use("/favorites", apiLimiter);
 app.use("/weather-layer", apiLimiter);
+
+/*
+==================================
+SEVERE WEATHER ALERTS
+==================================
+*/
+
+app.get("/alerts", async (req, res) => {
+  try {
+    const { lat, lon } = req.query;
+
+    // OpenWeatherMap One Call API 3.0 includes official government weather alerts
+    const response = await axios.get(
+      `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely,hourly,daily,current&appid=${process.env.API_KEY}`
+    );
+
+    res.json({ alerts: response.data.alerts || [] });
+  } catch (error) {
+    // One Call 3.0 requires a paid plan — return empty alerts gracefully
+    // The frontend falls back to local condition-code detection
+    res.json({ alerts: [] });
+  }
+});
 
 app.get("/weather/:city", async (req, res) => {
   try {

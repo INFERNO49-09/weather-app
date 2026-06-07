@@ -13,6 +13,7 @@ import TopBar from "./components/TopBar";
 import LoginButton from "./components/LoginButton";
 import ClimateInsights from "./components/ClimateInsights";
 import FavoritesPanel from "./components/FavoritesPanel";
+import { useNotifications } from "./components/useNotifications";
 
 import ForecastPage from "./components/ForecastPage";
 import LocationsPage from "./components/LocationsPage";
@@ -21,7 +22,6 @@ import MapPage from "./components/MapPage";
 
 const API = import.meta.env.VITE_API_URL;
 
-// Axios helper that always attaches JWT from localStorage
 function authHeaders() {
   const token = localStorage.getItem("token");
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -38,22 +38,21 @@ function App() {
   const [user, setUser] = useState(null);
   const [activePage, setActivePage] = useState("dashboard");
 
+  const { checkForAlerts } = useNotifications();
+
   const [history, setHistory] = useState(() => {
     return JSON.parse(localStorage.getItem("weatherHistory")) || [];
   });
 
   useEffect(() => {
-    // Check if Google OAuth just redirected back with a token in the URL
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
 
     if (token) {
       localStorage.setItem("token", token);
-      // Clean the token from the URL without reloading
       window.history.replaceState({}, "", "/");
     }
 
-    // Now fetch the user using whatever token we have
     fetchUser();
   }, []);
 
@@ -67,8 +66,7 @@ function App() {
       });
       setUser(res.data);
       loadFavorites();
-    } catch (err) {
-      // Token invalid or expired — clear it
+    } catch {
       localStorage.removeItem("token");
       setUser(null);
     }
@@ -181,12 +179,15 @@ function App() {
       setError("");
 
       const res = await axios.get(`${API}/weather/${city}`);
-
       setWeather(res.data);
       saveToHistory(city);
+
+      // Check for severe weather and notify if enabled
+      await checkForAlerts(res.data);
+
       await fetchForecast(city);
       await fetchAQI(res.data.coord.lat, res.data.coord.lon);
-    } catch (err) {
+    } catch {
       setError("City not found");
     } finally {
       setLoading(false);
@@ -204,6 +205,10 @@ function App() {
 
         setWeather(res.data);
         saveToHistory(res.data.name);
+
+        // Check for severe weather on location fetch too
+        await checkForAlerts(res.data);
+
         await fetchForecast(res.data.name);
         await fetchAQI(latitude, longitude);
       } catch (err) {
