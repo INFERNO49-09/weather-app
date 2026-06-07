@@ -1,5 +1,5 @@
 import axios from "axios";
-
+ 
 function FavoriteButton({
   weather,
   refreshFavorites,
@@ -7,7 +7,7 @@ function FavoriteButton({
   const addFavorite = async () => {
     try {
       await axios.post(
-        "http://localhost:5000/favorites",
+        `${import.meta.env.VITE_API_URL}/favorites`,
         {
           city: weather.name,
         },
@@ -15,15 +15,15 @@ function FavoriteButton({
           withCredentials: true,
         }
       );
-
+ 
       refreshFavorites();
     } catch (err) {
       console.error(err);
     }
   };
-
+ 
   if (!weather) return null;
-
+ 
   return (
     <button
       onClick={addFavorite}
@@ -33,5 +33,5 @@ function FavoriteButton({
     </button>
   );
 }
-
+ 
 export default FavoriteButton;
