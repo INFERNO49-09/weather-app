@@ -1,19 +1,19 @@
 function LoginButton({ user }) {
   const login = () => {
     window.location.href =
-      "${import.meta.env.VITE_API_URL}/auth/google";
+      `${import.meta.env.VITE_API_URL}/auth/google`;
   };
 
   const logout = () => {
     window.location.href =
-      "${import.meta.env.VITE_API_URL}/auth/logout";
+      `${import.meta.env.VITE_API_URL}/auth/logout`;
   };
 
   if (user) {
     return (
       <button
         onClick={logout}
-        className="backdrop-blur-xl bg-red-500/20 border border-red-400 px-5 py-3 rounded-2xl"
+        className="backdrop-blur-xl bg-red-500/20 border border-red-400 px-5 py-3 rounded-2xl hover:bg-red-500/30 transition"
       >
         Logout
       </button>
