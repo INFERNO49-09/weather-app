@@ -37,7 +37,9 @@ function App() {
 
   const [user, setUser] =
     useState(null);
-
+  useEffect(() => {
+  console.log("USER STATE CHANGED:", user);
+}, [user]);
   const [activePage, setActivePage] =
     useState("dashboard");
 
