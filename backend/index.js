@@ -13,6 +13,7 @@ import rateLimit from "express-rate-limit";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1);
 
 /*
 ==================================
@@ -80,9 +81,9 @@ app.use(
     saveUninitialized: false,
 
     cookie: {
-      secure: false,
+      secure: true,
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "none",
       maxAge: 1000 * 60 * 60 * 24,
     },
   })
