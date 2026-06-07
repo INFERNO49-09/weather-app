@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://weather-app-ygbd.onrender.com/:path*"
+    }
+  ]
+}

@@ -1,29 +1,23 @@
 import axios from "axios";
- 
-function FavoriteButton({
-  weather,
-  refreshFavorites,
-}) {
+
+const API = "/api";
+
+function FavoriteButton({ weather, refreshFavorites }) {
   const addFavorite = async () => {
     try {
       await axios.post(
-        `${import.meta.env.VITE_API_URL}/favorites`,
-        {
-          city: weather.name,
-        },
-        {
-          withCredentials: true,
-        }
+        `${API}/favorites`,
+        { city: weather.name },
+        { withCredentials: true }
       );
- 
       refreshFavorites();
     } catch (err) {
       console.error(err);
     }
   };
- 
+
   if (!weather) return null;
- 
+
   return (
     <button
       onClick={addFavorite}
@@ -33,5 +27,5 @@ function FavoriteButton({
     </button>
   );
 }
- 
+
 export default FavoriteButton;

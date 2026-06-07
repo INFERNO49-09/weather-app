@@ -1,12 +1,10 @@
 function LoginButton({ user }) {
   const login = () => {
-    window.location.href =
-      `${import.meta.env.VITE_API_URL}/auth/google`;
+    window.location.href = "/api/auth/google";
   };
 
   const logout = () => {
-    window.location.href =
-      `${import.meta.env.VITE_API_URL}/auth/logout`;
+    window.location.href = "/api/auth/logout";
   };
 
   if (user) {

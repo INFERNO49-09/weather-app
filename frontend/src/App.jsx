@@ -19,6 +19,10 @@ import LocationsPage from "./components/LocationsPage";
 import SettingsPage from "./components/SettingsPage";
 import MapPage from "./components/MapPage";
 
+// Use /api prefix — Vercel proxies this to Render backend,
+// keeping cookies same-site so sessions work correctly.
+const API = "/api";
+
 function App() {
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
@@ -36,37 +40,23 @@ function App() {
 
   const fetchUser = () => {
     return axios
-      .get(`${import.meta.env.VITE_API_URL}/auth/user`, {
-        withCredentials: true,
-      })
+      .get(`${API}/auth/user`, { withCredentials: true })
       .then((res) => {
         setUser(res.data);
-        if (res.data) {
-          loadFavorites();
-        }
+        if (res.data) loadFavorites();
       })
       .catch(console.error);
   };
 
   useEffect(() => {
-    // Initial fetch
     fetchUser();
-
-    // After Google OAuth redirect, cookie may not be ready on first render
-    // so retry once after a short delay
-    const timer = setTimeout(() => {
-      fetchUser();
-    }, 1500);
-
-    return () => clearTimeout(timer);
   }, []);
 
   const loadFavorites = async () => {
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/favorites`,
-        { withCredentials: true }
-      );
+      const res = await axios.get(`${API}/favorites`, {
+        withCredentials: true,
+      });
       setFavorites(res.data.map((item) => item.city));
     } catch (err) {
       console.error(err);
@@ -75,10 +65,9 @@ function App() {
 
   const removeFavorite = async (city) => {
     try {
-      await axios.delete(
-        `${import.meta.env.VITE_API_URL}/favorites/${city}`,
-        { withCredentials: true }
-      );
+      await axios.delete(`${API}/favorites/${city}`, {
+        withCredentials: true,
+      });
       loadFavorites();
     } catch (err) {
       console.error(err);
@@ -120,9 +109,7 @@ function App() {
 
   const fetchAQI = async (lat, lon) => {
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/aqi?lat=${lat}&lon=${lon}`
-      );
+      const res = await axios.get(`${API}/aqi?lat=${lat}&lon=${lon}`);
       setAqi(res.data);
     } catch (err) {
       console.error(err);
@@ -131,9 +118,7 @@ function App() {
 
   const fetchForecast = async (city) => {
     try {
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/forecast/${city}`
-      );
+      const res = await axios.get(`${API}/forecast/${city}`);
 
       const dailyForecast = res.data.list
         .filter((item) => item.dt_txt.includes("12:00:00"))
@@ -167,9 +152,7 @@ function App() {
       setLoading(true);
       setError("");
 
-      const res = await axios.get(
-        `${import.meta.env.VITE_API_URL}/weather/${city}`
-      );
+      const res = await axios.get(`${API}/weather/${city}`);
 
       setWeather(res.data);
       saveToHistory(city);
@@ -188,7 +171,7 @@ function App() {
         const { latitude, longitude } = position.coords;
 
         const res = await axios.get(
-          `${import.meta.env.VITE_API_URL}/weather/location?lat=${latitude}&lon=${longitude}`
+          `${API}/weather/location?lat=${latitude}&lon=${longitude}`
         );
 
         setWeather(res.data);
