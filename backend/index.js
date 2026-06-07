@@ -229,7 +229,7 @@ app.get("/auth/logout", (req, res) => {
 
     req.session.destroy(() => {
       res.redirect(
-        "http://localhost:5173"
+        "https://weather-app-1242.vercel.app"
       );
     });
   });
