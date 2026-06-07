@@ -111,7 +111,7 @@ passport.use(
         process.env.GOOGLE_CLIENT_SECRET,
 
       callbackURL:
-        "https://weather-app-ygbd.onrender.com",
+        "https://weather-app-ygbd.onrender.com/auth/google/callback",
     },
     (
       accessToken,
