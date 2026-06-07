@@ -55,7 +55,7 @@ function App() {
   useEffect(() => {
     axios
       .get(
-        '${import.meta.env.VITE_API_URL}/auth/user',
+        `${import.meta.env.VITE_API_URL}/auth/user`,
         {
           withCredentials: true,
         }
@@ -74,7 +74,7 @@ function App() {
   const loadFavorites = async () => {
     try {
       const res = await axios.get(
-        '${import.meta.env.VITE_API_URL}/favorites',
+        `${import.meta.env.VITE_API_URL}/favorites`,
         {
           withCredentials: true,
         }
