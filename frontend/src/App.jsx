@@ -22,87 +22,63 @@ import MapPage from "./components/MapPage";
 function App() {
   const [weather, setWeather] = useState(null);
   const [forecast, setForecast] = useState([]);
-  const [hourlyForecast, setHourlyForecast] =
-    useState([]);
+  const [hourlyForecast, setHourlyForecast] = useState([]);
   const [aqi, setAqi] = useState(null);
+  const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [user, setUser] = useState(null);
+  const [activePage, setActivePage] = useState("dashboard");
 
-  const [favorites, setFavorites] =
-    useState([]);
+  const [history, setHistory] = useState(() => {
+    return JSON.parse(localStorage.getItem("weatherHistory")) || [];
+  });
 
-  const [loading, setLoading] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  const [user, setUser] =
-    useState(null);
-  useEffect(() => {
-  console.log("USER STATE CHANGED:", user);
-}, [user]);
-  const [activePage, setActivePage] =
-    useState("dashboard");
-
-  const [history, setHistory] =
-    useState(() => {
-      return (
-        JSON.parse(
-          localStorage.getItem(
-            "weatherHistory"
-          )
-        ) || []
-      );
-    });
-
-  useEffect(() => {
-    axios
-      .get(
-        `${import.meta.env.VITE_API_URL}/auth/user`,
-        {
-          withCredentials: true,
-        }
-      )
+  const fetchUser = () => {
+    return axios
+      .get(`${import.meta.env.VITE_API_URL}/auth/user`, {
+        withCredentials: true,
+      })
       .then((res) => {
-        console.log("AUTH USER:", res.data);
         setUser(res.data);
-
         if (res.data) {
           loadFavorites();
         }
       })
       .catch(console.error);
+  };
+
+  useEffect(() => {
+    // Initial fetch
+    fetchUser();
+
+    // After Google OAuth redirect, cookie may not be ready on first render
+    // so retry once after a short delay
+    const timer = setTimeout(() => {
+      fetchUser();
+    }, 1500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const loadFavorites = async () => {
     try {
       const res = await axios.get(
         `${import.meta.env.VITE_API_URL}/favorites`,
-        {
-          withCredentials: true,
-        }
+        { withCredentials: true }
       );
-
-      setFavorites(
-        res.data.map(
-          (item) => item.city
-        )
-      );
+      setFavorites(res.data.map((item) => item.city));
     } catch (err) {
       console.error(err);
     }
   };
 
-  const removeFavorite = async (
-    city
-  ) => {
+  const removeFavorite = async (city) => {
     try {
       await axios.delete(
         `${import.meta.env.VITE_API_URL}/favorites/${city}`,
-        {
-          withCredentials: true,
-        }
+        { withCredentials: true }
       );
-
       loadFavorites();
     } catch (err) {
       console.error(err);
@@ -113,351 +89,174 @@ function App() {
     const updatedHistory = [
       city,
       ...history.filter(
-        (item) =>
-          item.toLowerCase() !==
-          city.toLowerCase()
+        (item) => item.toLowerCase() !== city.toLowerCase()
       ),
     ].slice(0, 5);
 
     setHistory(updatedHistory);
-
-    localStorage.setItem(
-      "weatherHistory",
-      JSON.stringify(updatedHistory)
-    );
+    localStorage.setItem("weatherHistory", JSON.stringify(updatedHistory));
   };
 
   const getBackgroundClass = () => {
     if (!weather)
       return "bg-gradient-to-br from-slate-950 via-slate-900 to-black";
 
-    const condition =
-      weather.weather[0].main.toLowerCase();
+    const condition = weather.weather[0].main.toLowerCase();
 
     switch (condition) {
       case "clear":
         return "bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900";
-
       case "clouds":
         return "bg-gradient-to-br from-slate-950 via-slate-800 to-slate-900";
-
       case "rain":
       case "drizzle":
         return "bg-gradient-to-br from-slate-950 via-blue-950 to-black";
-
       case "thunderstorm":
         return "bg-gradient-to-br from-black via-purple-950 to-slate-950";
-
       default:
         return "bg-gradient-to-br from-slate-950 via-slate-900 to-black";
     }
   };
 
-  const fetchAQI = async (
-    lat,
-    lon
-  ) => {
+  const fetchAQI = async (lat, lon) => {
     try {
-      const res =
-        await axios.get(
-          `${import.meta.env.VITE_API_URL}/aqi?lat=${lat}&lon=${lon}`
-        );
-
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/aqi?lat=${lat}&lon=${lon}`
+      );
       setAqi(res.data);
     } catch (err) {
       console.error(err);
     }
   };
 
-  const fetchForecast =
-    async (city) => {
+  const fetchForecast = async (city) => {
+    try {
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/forecast/${city}`
+      );
+
+      const dailyForecast = res.data.list
+        .filter((item) => item.dt_txt.includes("12:00:00"))
+        .slice(0, 5)
+        .map((item) => ({
+          date: new Date(item.dt_txt).toLocaleDateString("en-US", {
+            weekday: "short",
+          }),
+          temp: item.main.temp,
+          description: item.weather[0].description,
+          icon: item.weather[0].icon,
+        }));
+
+      setForecast(dailyForecast);
+
+      const hourlyData = res.data.list.slice(0, 8).map((item) => ({
+        time: new Date(item.dt_txt).toLocaleTimeString([], { hour: "numeric" }),
+        temp: item.main.temp,
+      }));
+
+      setHourlyForecast(hourlyData);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchWeather = async (city) => {
+    if (!city.trim()) return;
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const res = await axios.get(
+        `${import.meta.env.VITE_API_URL}/weather/${city}`
+      );
+
+      setWeather(res.data);
+      saveToHistory(city);
+      await fetchForecast(city);
+      await fetchAQI(res.data.coord.lat, res.data.coord.lon);
+    } catch (err) {
+      setError("City not found");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLocationWeather = () => {
+    navigator.geolocation.getCurrentPosition(async (position) => {
       try {
-        const res =
-          await axios.get(
-            `${import.meta.env.VITE_API_URL}/forecast/${city}`
-          );
+        const { latitude, longitude } = position.coords;
 
-        const dailyForecast =
-          res.data.list
-            .filter((item) =>
-              item.dt_txt.includes(
-                "12:00:00"
-              )
-            )
-            .slice(0, 5)
-            .map((item) => ({
-              date: new Date(
-                item.dt_txt
-              ).toLocaleDateString(
-                "en-US",
-                {
-                  weekday:
-                    "short",
-                }
-              ),
-              temp:
-                item.main.temp,
-              description:
-                item.weather[0]
-                  .description,
-              icon:
-                item.weather[0]
-                  .icon,
-            }));
-
-        setForecast(
-          dailyForecast
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/weather/location?lat=${latitude}&lon=${longitude}`
         );
 
-        const hourlyData =
-          res.data.list
-            .slice(0, 8)
-            .map((item) => ({
-              time: new Date(
-                item.dt_txt
-              ).toLocaleTimeString(
-                [],
-                {
-                  hour:
-                    "numeric",
-                }
-              ),
-              temp:
-                item.main.temp,
-            }));
-
-        setHourlyForecast(
-          hourlyData
-        );
+        setWeather(res.data);
+        saveToHistory(res.data.name);
+        await fetchForecast(res.data.name);
+        await fetchAQI(latitude, longitude);
       } catch (err) {
         console.error(err);
       }
-    };
-
-  const fetchWeather =
-    async (city) => {
-      if (!city.trim()) return;
-
-      try {
-        setLoading(true);
-        setError("");
-
-        const res =
-          await axios.get(
-            `${import.meta.env.VITE_API_URL}/weather/${city}`
-          );
-
-        setWeather(
-          res.data
-        );
-
-        saveToHistory(
-          city
-        );
-
-        await fetchForecast(
-          city
-        );
-
-        await fetchAQI(
-          res.data.coord.lat,
-          res.data.coord.lon
-        );
-      } catch (err) {
-        setError(
-          "City not found"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-  const fetchLocationWeather =
-    () => {
-      navigator.geolocation.getCurrentPosition(
-        async (
-          position
-        ) => {
-          try {
-            const {
-              latitude,
-              longitude,
-            } =
-              position.coords;
-
-            const res =
-              await axios.get(
-                `${import.meta.env.VITE_API_URL}/weather/location?lat=${latitude}&lon=${longitude}`
-              );
-
-            setWeather(
-              res.data
-            );
-
-            saveToHistory(
-              res.data.name
-            );
-
-            await fetchForecast(
-              res.data.name
-            );
-
-            await fetchAQI(
-              latitude,
-              longitude
-            );
-          } catch (err) {
-            console.error(
-              err
-            );
-          }
-        }
-      );
-    };
+    });
+  };
 
   return (
-    <div
-      className={`min-h-screen text-white ${getBackgroundClass()}`}
-    >
-      <WeatherEffects
-        condition={
-          weather?.weather?.[0]
-            ?.main
-        }
-      />
+    <div className={`min-h-screen text-white ${getBackgroundClass()}`}>
+      <WeatherEffects condition={weather?.weather?.[0]?.main} />
 
       <div className="flex flex-col lg:flex-row min-h-screen">
-        <Sidebar
-          activePage={
-            activePage
-          }
-          setActivePage={
-            setActivePage
-          }
-        />
+        <Sidebar activePage={activePage} setActivePage={setActivePage} />
 
         <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-x-hidden pb-24 lg:pb-8">
-
           <div className="flex flex-col gap-4 lg:flex-row lg:justify-between lg:items-center mb-8">
             <TopBar user={user} />
-               <div className="flex justify-start lg:justify-end">
-            <LoginButton user={user} />
+            <div className="flex justify-start lg:justify-end">
+              <LoginButton user={user} />
             </div>
           </div>
 
           <div className="mb-8">
-            <SearchBar
-              onSearch={
-                fetchWeather
-              }
-            />
+            <SearchBar onSearch={fetchWeather} />
           </div>
 
           <div className="mb-8 flex justify-center lg:justify-start">
-            <LocationButton
-              onLocationSearch={
-                fetchLocationWeather
-              }
-            />
+            <LocationButton onLocationSearch={fetchLocationWeather} />
           </div>
 
-          {favorites.length >
-            0 && (
+          {favorites.length > 0 && (
             <div className="mb-8">
               <FavoritesPanel
-                favorites={
-                  favorites
-                }
-                onSelectCity={
-                  fetchWeather
-                }
-                onRemove={
-                  removeFavorite
-                }
+                favorites={favorites}
+                onSelectCity={fetchWeather}
+                onRemove={removeFavorite}
               />
             </div>
           )}
 
-          {activePage ===
-            "dashboard" &&
-            weather && (
-              <div className="space-y-6 lg:space-y-8">
-
-                <WeatherCard
-                  weather={
-                    weather
-                  }
-                  aqi={aqi}
-                  refreshFavorites={
-                    loadFavorites
-                  }
-                />
-
-                <ClimateInsights
-                  weather={
-                    weather
-                  }
-                />
-
-                <HourlyForecastChart
-                  data={
-                    hourlyForecast
-                  }
-                />
-
-                <ForecastCard
-                  forecast={
-                    forecast
-                  }
-                />
-
-                <SearchHistory
-                  history={
-                    history
-                  }
-                  onSelectCity={
-                    fetchWeather
-                  }
-                />
-
-              </div>
-            )}
-
-          {activePage ===
-            "forecast" && (
-            <ForecastPage
-              forecast={
-                forecast
-              }
-            />
+          {activePage === "dashboard" && weather && (
+            <div className="space-y-6 lg:space-y-8">
+              <WeatherCard
+                weather={weather}
+                aqi={aqi}
+                refreshFavorites={loadFavorites}
+              />
+              <ClimateInsights weather={weather} />
+              <HourlyForecastChart data={hourlyForecast} />
+              <ForecastCard forecast={forecast} />
+              <SearchHistory history={history} onSelectCity={fetchWeather} />
+            </div>
           )}
 
-          {activePage ===
-            "locations" && (
-            <LocationsPage
-              history={
-                history
-              }
-              onSelectCity={
-                fetchWeather
-              }
-            />
+          {activePage === "forecast" && <ForecastPage forecast={forecast} />}
+
+          {activePage === "locations" && (
+            <LocationsPage history={history} onSelectCity={fetchWeather} />
           )}
 
-          {activePage ===
-            "map" && (
-            <MapPage
-              weather={
-                weather
-              }
-            />
-          )}
+          {activePage === "map" && <MapPage weather={weather} />}
 
-          {activePage ===
-            "settings" && (
-            <SettingsPage />
-          )}
-
+          {activePage === "settings" && <SettingsPage />}
         </main>
       </div>
     </div>
