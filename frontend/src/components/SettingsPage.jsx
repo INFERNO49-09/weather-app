@@ -72,7 +72,7 @@ function SettingsPage() {
           {permission === "denied" && (
             <div className="mt-4 p-3 bg-red-500/20 border border-red-400/30 rounded-xl text-sm text-red-300">
               Notifications are blocked. Go to your browser's site settings for{" "}
-              <strong>weather-app-1242.vercel.app</strong> and set Notifications to "Allow", then refresh.
+              <strong>{window.location.hostname}</strong> and set Notifications to "Allow", then refresh.
             </div>
           )}
 
