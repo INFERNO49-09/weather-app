@@ -38,10 +38,6 @@ function SettingsPage() {
 
       <div className="grid gap-4">
 
-        <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl p-6">
-          <h2 className="text-xl font-bold">Temperature Unit</h2>
-          <p className="text-gray-400">Coming Soon</p>
-        </div>
 
         <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-3xl p-6">
           <div className="flex items-center justify-between mb-2">
