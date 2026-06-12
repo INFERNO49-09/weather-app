@@ -3,6 +3,7 @@ import {
   CloudSun,
   MapPin,
   Map,
+  Settings,
 } from "lucide-react";
 
 function Sidebar({
@@ -29,6 +30,11 @@ function Sidebar({
       page: "map",
       label: "Map",
       icon: Map,
+    },
+    {
+      page: "settings",
+      label: "Settings",
+      icon: Settings,
     },
   ];
 
